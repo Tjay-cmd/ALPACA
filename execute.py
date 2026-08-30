@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,9 +15,19 @@ from alpaca.trading.enums import AssetClass, OrderClass, OrderSide, PositionInte
 from alpaca.trading.requests import LimitOrderRequest, OptionLegRequest
 from dotenv import load_dotenv
 
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parent
+load_dotenv(PROJECT_ROOT / ".env")
 
-TRADE_LOG_PATH = Path(__file__).resolve().parent / "trade_log.csv"
+TRADE_LOG_PATH = PROJECT_ROOT / "trade_log.csv"
+logger = logging.getLogger(__name__)
+
+
+def _emit(message: str) -> None:
+    """Print and log. Never waits for input."""
+    print(message)
+    logger.info(message)
+
+
 LOG_COLUMNS = [
     "timestamp",
     "symbol",
@@ -175,7 +186,7 @@ def place_spread_order(
         or validated_trade.get("action") == "no_trade"
     ):
         reason = validated_trade.get("risk_notes") or "risk check failed or no_trade"
-        print(f"No order placed: {reason}")
+        _emit(f"No order placed: {reason}")
         _log_attempt(validated_trade, symbol, order_placed=False, order_id=None)
         return {"order_placed": False, "order_id": None, "error": None}
 
@@ -185,7 +196,7 @@ def place_spread_order(
     limit_price = validated_trade.get("limit_price")
     if not short_symbol or not long_symbol or not contracts or limit_price is None:
         error = "Validated trade is missing OCC symbols, contracts, or limit_price."
-        print(f"No order placed: {error}")
+        _emit(f"No order placed: {error}")
         _log_attempt(validated_trade, symbol, order_placed=False, order_id=None)
         return {"order_placed": False, "order_id": None, "error": error}
 
@@ -197,7 +208,7 @@ def place_spread_order(
         f"limit={limit_price} max_loss=${validated_trade.get('max_loss_dollars')}"
     )
 
-    print(
+    _emit(
         f"ABOUT TO SUBMIT: {symbol} {validated_trade.get('spread_type')} "
         f"short {validated_trade.get('short_strike')} / "
         f"long {validated_trade.get('long_strike')} "
@@ -205,7 +216,7 @@ def place_spread_order(
     )
 
     if dry_run:
-        print(f"DRY RUN: would have placed {summary}")
+        _emit(f"DRY RUN: would have placed {summary}")
         _log_attempt(validated_trade, symbol, order_placed=False, order_id="DRY_RUN")
         return {"order_placed": False, "order_id": None, "error": "dry_run"}
 
@@ -235,11 +246,11 @@ def place_spread_order(
         order = _trading_client().submit_order(request)
     except Exception as exc:
         error = f"Alpaca submit_order failed: {exc}"
-        print(error)
+        _emit(error)
         _log_attempt(validated_trade, symbol, order_placed=False, order_id=None)
         return {"order_placed": False, "order_id": None, "error": error}
 
     order_id = str(getattr(order, "id", "") or "")
-    print(f"Order placed: {summary} id={order_id}")
+    _emit(f"Order placed: {summary} id={order_id}")
     _log_attempt(validated_trade, symbol, order_placed=True, order_id=order_id)
     return {"order_placed": True, "order_id": order_id, "error": None}

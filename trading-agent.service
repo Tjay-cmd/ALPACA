@@ -1,0 +1,16 @@
+[Unit]
+Description=ALPACA paper trading agent scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/ALPACA
+ExecStart=/root/ALPACA/venv/bin/python /root/ALPACA/scheduler.py
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

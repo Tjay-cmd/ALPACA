@@ -7,6 +7,7 @@ import os
 import re
 import sys
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -32,7 +33,7 @@ def _import_openai_client():
 
 OpenAI = _import_openai_client()
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # General-purpose instruct models (not coding specialists). Qwen2.5-7B is
 # Featherless's documented default and is reliable for JSON; others are fallbacks

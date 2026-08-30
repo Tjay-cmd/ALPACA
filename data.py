@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pandas as pd
 from alpaca.data.enums import Adjustment, DataFeed, OptionsFeed
@@ -13,7 +14,7 @@ from alpaca.data.requests import OptionChainRequest, StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # OCC option symbols end with YYMMDD + C/P + 8-digit strike (strike * 1000).
 _OCC_SUFFIX = re.compile(r"^(?P<root>.+)(?P<ymd>\d{6})(?P<cp>[CP])(?P<strike>\d{8})$")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from pathlib import Path
 
 from alpaca.trading.client import TradingClient
 from dotenv import load_dotenv
@@ -15,7 +16,8 @@ from decision import allowed_actions, decide_trade
 from execute import count_open_option_positions, place_spread_order
 from risk import validate_and_size_trade
 
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parent
+load_dotenv(PROJECT_ROOT / ".env")
 
 # Flip to False only after you have reviewed a dry run and want paper orders.
 DRY_RUN = False
@@ -162,7 +164,7 @@ def run_once(
         print("\n=== Done ===")
         if DRY_RUN:
             print("DRY_RUN is True. No live paper order was submitted.")
-        print(f"Trade log: {os.path.join(os.path.dirname(__file__), 'trade_log.csv')}")
+        print(f"Trade log: {PROJECT_ROOT / 'trade_log.csv'}")
 
     llm_action = decision.get("action")
     if llm_action == "no_trade":
