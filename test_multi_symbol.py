@@ -9,7 +9,7 @@ from alpaca.trading.client import TradingClient
 from dotenv import load_dotenv
 
 from data import get_option_chain, get_price_history
-from signal import compute_iv_rv_spread, compute_realized_volatility
+from vol_signal import compute_iv_rv_spread, compute_realized_volatility
 from decision import allowed_actions, decide_trade
 from execute import count_open_option_positions, place_spread_order
 from risk import validate_and_size_trade

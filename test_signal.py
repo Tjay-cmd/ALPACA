@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from data import get_option_chain, get_price_history
-from signal import compute_iv_rv_spread, compute_realized_volatility
+from vol_signal import compute_iv_rv_spread, compute_realized_volatility
 
 # Easy to change for a different underlying.
 SYMBOL = "SPY"

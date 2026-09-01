@@ -5,33 +5,13 @@ from __future__ import annotations
 import json
 import os
 import re
-import sys
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from dotenv import load_dotenv
-
-
-def _import_openai_client():
-    """Import OpenAI without our local signal.py shadowing the stdlib module."""
-    here = os.path.dirname(os.path.abspath(__file__))
-    sys.path = [
-        p for p in sys.path if os.path.abspath(p or os.getcwd()) != os.path.abspath(here)
-    ]
-    cached_signal = sys.modules.pop("signal", None)
-    try:
-        from openai import OpenAI as _OpenAI
-        return _OpenAI
-    finally:
-        if here not in sys.path:
-            sys.path.insert(0, here)
-        if cached_signal is not None:
-            sys.modules["signal"] = cached_signal
-
-
-OpenAI = _import_openai_client()
+from openai import OpenAI
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 

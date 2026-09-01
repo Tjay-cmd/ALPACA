@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 from data import get_long_price_history
-from signal import rolling_realized_volatility
+from vol_signal import rolling_realized_volatility
 
 SYMBOLS = ["SPY", "QQQ", "AAPL", "TSLA", "NVDA", "IWM"]
 SHORT_WINDOW = 20
@@ -101,24 +101,19 @@ def _caveat(n: int, label: str) -> str | None:
     return None
 
 
-def backtest_symbol(symbol: str) -> SymbolReport:
-    """PROXY: vol mean-reversion on historical prices only."""
-    prices = get_long_price_history(symbol, lookback_years=LOOKBACK_YEARS)
+def collect_signals(
+    prices: pd.DataFrame,
+    threshold: float,
+) -> tuple[list[SignalResult], list[SignalResult]]:
+    """Non-overlapping sell/buy PROXY signals for one sorted price series."""
+    sell_signals: list[SignalResult] = []
+    buy_signals: list[SignalResult] = []
     if prices.empty or "close" not in prices.columns:
-        return SymbolReport(symbol, 0, "", "", 0.0, error="no price history")
+        return sell_signals, buy_signals
+    if len(prices) < BASELINE_WINDOW + FORWARD_WINDOW + 1:
+        return sell_signals, buy_signals
 
     prices = prices.sort_values("timestamp").reset_index(drop=True)
-    first = pd.to_datetime(prices["timestamp"].iloc[0])
-    last = pd.to_datetime(prices["timestamp"].iloc[-1])
-    years = (last - first).days / 365.25
-    report = SymbolReport(
-        symbol=symbol,
-        bars=len(prices),
-        first_date=first.date().isoformat(),
-        last_date=last.date().isoformat(),
-        years_covered=years,
-    )
-
     closes = prices["close"].astype(float)
     rv_20 = rolling_realized_volatility(prices, window=SHORT_WINDOW)
     rv_90 = rolling_realized_volatility(prices, window=BASELINE_WINDOW)
@@ -133,11 +128,11 @@ def backtest_symbol(symbol: str) -> SymbolReport:
             continue
 
         gap = float(short_vol) - float(base_vol)
-        if abs(gap) <= THRESHOLD:
+        if abs(gap) <= threshold:
             i += 1
             continue
 
-        direction = "sell" if gap > THRESHOLD else "buy"
+        direction = "sell" if gap > threshold else "buy"
         forward = _forward_realized_vol(closes, i, FORWARD_WINDOW)
         change = forward - float(short_vol)
         if direction == "sell":
@@ -156,13 +151,34 @@ def backtest_symbol(symbol: str) -> SymbolReport:
             win=win,
         )
         if direction == "sell":
-            report.sell_signals.append(result)
+            sell_signals.append(result)
         else:
-            report.buy_signals.append(result)
+            buy_signals.append(result)
 
         # Non-overlapping: skip the forward window so the next signal is independent.
         i += FORWARD_WINDOW
 
+    return sell_signals, buy_signals
+
+
+def backtest_symbol(symbol: str) -> SymbolReport:
+    """PROXY: vol mean-reversion on historical prices only."""
+    prices = get_long_price_history(symbol, lookback_years=LOOKBACK_YEARS)
+    if prices.empty or "close" not in prices.columns:
+        return SymbolReport(symbol, 0, "", "", 0.0, error="no price history")
+
+    prices = prices.sort_values("timestamp").reset_index(drop=True)
+    first = pd.to_datetime(prices["timestamp"].iloc[0])
+    last = pd.to_datetime(prices["timestamp"].iloc[-1])
+    years = (last - first).days / 365.25
+    report = SymbolReport(
+        symbol=symbol,
+        bars=len(prices),
+        first_date=first.date().isoformat(),
+        last_date=last.date().isoformat(),
+        years_covered=years,
+    )
+    report.sell_signals, report.buy_signals = collect_signals(prices, THRESHOLD)
     return report
 
 
