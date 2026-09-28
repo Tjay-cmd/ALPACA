@@ -140,6 +140,24 @@ Per-symbol counts were small (roughly 7–12 each). The script labels those as d
 
 `backtest_threshold_sweep.py` extends the same signal logic to **18 liquid, optionable names** (the original six plus DIA, XLF, XLE, XLV, GLD, TLT, MSFT, GOOGL, AMZN, META, JPM, AMD) and sweeps thresholds `[0.01, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05]`. Each symbol’s history is split **in half chronologically** (first half train, second half test). A threshold is treated as real evidence of edge only if win rate holds up on **both** halves with a usable sample. Thresholds that look great in one window and mediocre in the other are printed as **overfitting warnings**. More extreme hurdles shrink n and were treated as likely noise; the **live gate stays at 0.02**, which is also the original proxy hurdle that showed a supportive sell-side rate without collapsing the sample.
 
+### Testing the real IV/RV rule on SPX + VIX (`vrp_backtest.py`)
+
+The proxy above never sees implied vol. `vrp_backtest.py` does: it uses the VIX (30-day implied vol on the S&P 500) against S&P 500 realized vol, **2002–2018** (~4,250 sessions, including 2008, 2011, 2015 and Feb-2018). No Alpaca keys needed (`pip install arch`). P&L is a 21-session short variance swap in vol points, which is convex like short options, so crash months count properly. The results are averaged over all 21 monthly start offsets and split in half at 2010/2011.
+
+| Rule | 2002–2010 Sharpe / max DD | 2011–2018 Sharpe / max DD |
+|---|---|---|
+| Live rule (IV−RV ±0.02, credit + debit) | 0.97 / −0.45 | 0.60 / −0.44 |
+| Live rule, credit side only | 1.42 / −0.38 | 0.74 / −0.38 |
+| **New: IV/RV > 1.15, credit only** | **1.69 / −0.21** | **0.81 / −0.36** |
+
+Findings:
+
+1. **The debit leg loses.** When IV < RV − 0.02, forward realized vol beat implied only 31% / 19% of the time in the two halves. On average that was +2.3 vol points in the first half and −3.5 in the second, so the debit side lost money over the period that matters most. IV usually sits under trailing RV right *after* a vol spike, and realized vol then falls. Dropping the debit branch improved Sharpe in both halves.
+2. **A ratio beats a fixed spread.** Two vol points is 17% rich at IV 12 but only 5% rich at IV 40. Measuring richness as IV/RV skips the thin-edge trades in high-vol regimes. That halved the worst month in 2002–2010 and was slightly better in 2011–2018. Every threshold from 1.10 to 1.30 scored at or above the 0.02 spread in the first half, so this is not a single lucky parameter. The second-half gains are within noise.
+3. **Honest counterpoint:** in 2011–2018, a low-vol, steady-uptrend regime, "always sell" (Sharpe 1.14) beat every filter. Filters mostly pay off in crisis regimes.
+
+Caveats: this is one underlying. VIX sits ~1–3 points above the ATM-weighted IV the agent uses, which slightly flatters credits. A variance swap is not a defined-risk vertical either. The ratio rule is implemented as `compute_iv_rv_ratio()` + `allowed_actions_by_ratio()`, but it is **not wired into the live path**, because switching it on is a strategy decision.
+
 **Known limitation (please read this as part of the submission, not a footnote):** this validates that the vol mean-reversion *premise* is not obviously wrong in this window. It is **not** proof of profitable options trading. Paper and live spread P&L can differ by a lot because of IV, bid/ask, slippage, theta, and strike selection. Testing many thresholds on the same prices can discover noise; the split-half check is a partial safeguard, not a guarantee.
 
 ---
@@ -239,6 +257,8 @@ Cloud install: `DEPLOYMENT.md`.
 | `scheduler.py` | Market-hours loop |
 | `dashboard.py` | Streamlit trade log |
 | `backtest.py` | Proxy vol mean-reversion test |
+| `vrp_backtest.py` | Real IV/RV rule test on SPX + VIX, 2002–2018 |
+| `test_ratio_signal.py` | Offline tests for the ratio signal (`pytest`) |
 | `backtest_threshold_sweep.py` | Multi-symbol threshold + split-half |
 | `trading-agent.service` | systemd unit |
 | `DEPLOYMENT.md` | Droplet install |

@@ -13,6 +13,8 @@ import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from vol_signal import DEFAULT_RICH_RATIO
+
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # General-purpose instruct models (not coding specialists). Qwen2.5-7B is
@@ -46,6 +48,19 @@ def allowed_actions(iv_rv_spread: float, threshold: float = DEFAULT_SPREAD_THRES
 
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE)
 
+
+def allowed_actions_by_ratio(
+    iv_rv_ratio: float, rich_ratio: float = DEFAULT_RICH_RATIO
+) -> list[str]:
+    """Credit-only direction constraint from IV / RV (see vrp_backtest.py).
+
+    Rich premium (ratio above `rich_ratio`) may credit or stand aside. There is
+    no debit branch: on SPX 2002-2018, buying premium when IV < RV lost money
+    in both halves of the sample. Not wired into main.py; opt in explicitly.
+    """
+    if iv_rv_ratio > rich_ratio:
+        return ["credit_spread", "no_trade"]
+    return ["no_trade"]
 
 def _load_featherless_key() -> str:
     """Return the Featherless API key from the environment."""

@@ -7,6 +7,11 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+# IV must be at least 15% above RV to count as rich. A ratio scales with the
+# vol level: 2 vol points is 17% rich at IV 12 but only 5% rich at IV 40.
+# Chosen before testing; 1.10-1.30 all behaved similarly in vrp_backtest.py.
+DEFAULT_RICH_RATIO = 1.15
+
 
 def rolling_realized_volatility(price_df: pd.DataFrame, window: int = 20) -> pd.Series:
     """Annualized rolling realized vol: std(log returns) * sqrt(252)."""
@@ -83,3 +88,10 @@ def compute_iv_rv_spread(
 
     spread = avg_iv - realized_vol
     return spread, avg_iv, float(realized_vol)
+
+
+def compute_iv_rv_ratio(avg_iv: float, realized_vol: float) -> float:
+    """Relative vol richness: IV / RV. 1.15 means IV is 15% above realized."""
+    if realized_vol <= 0:
+        raise ValueError(f"realized_vol must be positive; got {realized_vol}.")
+    return float(avg_iv) / float(realized_vol)
